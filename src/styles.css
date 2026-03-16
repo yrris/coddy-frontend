@@ -1,0 +1,141 @@
+:root {
+  font-family: 'Avenir Next', 'Helvetica Neue', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #102a43;
+  background: radial-gradient(circle at 0% 0%, #f4f9ff 0%, #edf4ff 40%, #e5f2f5 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+a {
+  color: #2151a8;
+  text-decoration: none;
+}
+
+a.active {
+  font-weight: 700;
+}
+
+code {
+  font-family: 'Menlo', 'Monaco', monospace;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.76);
+  border-bottom: 1px solid rgba(16, 42, 67, 0.1);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+}
+
+.header-brand {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.header-nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.app-main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+.page-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1.4fr 1fr;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(16, 42, 67, 0.12);
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px rgba(33, 81, 168, 0.08);
+}
+
+.hero h1 {
+  margin-top: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.eyebrow {
+  display: inline-block;
+  margin: 0;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: #2151a8;
+  background: rgba(33, 81, 168, 0.12);
+}
+
+.stack-list {
+  margin: 0.9rem 0 0;
+  padding-left: 1rem;
+}
+
+.panel-subtitle {
+  margin-top: -0.35rem;
+  color: #486581;
+}
+
+.status {
+  border-radius: 10px;
+  padding: 0.7rem;
+  margin: 0.75rem 0;
+}
+
+.status.loading {
+  background: #fff4d6;
+  color: #8d6a00;
+}
+
+.status.error {
+  background: #ffe3e3;
+  color: #b42318;
+}
+
+.status.success {
+  background: #e7f7ef;
+  color: #0b7a43;
+}
+
+.primary-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  background: #1d4b9c;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.primary-btn:hover {
+  background: #163a78;
+}
+
+@media (max-width: 860px) {
+  .page-grid {
+    grid-template-columns: 1fr;
+  }
+}
