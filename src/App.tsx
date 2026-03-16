@@ -1,4 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import env from './config/env';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 
@@ -6,7 +7,7 @@ function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div className="header-brand">Coddy</div>
+        <div className="header-brand">{env.appName}</div>
         <nav className="header-nav">
           <NavLink to="/" end>
             Home

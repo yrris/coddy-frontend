@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchHealthPing } from '../lib/api';
+import { ApiError } from '../lib/http';
 
 function BackendStatusCard() {
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['health-ping'],
     queryFn: fetchHealthPing
   });
+
+  const resolvedError = error instanceof ApiError ? error.message : 'Backend is unreachable.';
 
   return (
     <section className="panel">
@@ -16,7 +19,7 @@ function BackendStatusCard() {
 
       {isError && (
         <p className="status error">
-          Backend is unreachable. Start backend and retry.
+          {resolvedError}
         </p>
       )}
 
