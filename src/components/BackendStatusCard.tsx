@@ -12,26 +12,35 @@ function BackendStatusCard() {
 
   return (
     <section className="panel">
-      <h2>Backend Link Check</h2>
-      <p className="panel-subtitle">This verifies connection to <code>/api/health/ping</code>.</p>
+      <h2>Backend Status</h2>
+      <p className="panel-subtitle">
+        Connection to <code>/api/health/ping</code>
+      </p>
 
       {isLoading && <p className="status loading">Checking backend status...</p>}
 
-      {isError && (
-        <p className="status error">
-          {resolvedError}
-        </p>
-      )}
+      {isError && <p className="status error">{resolvedError}</p>}
 
       {data && (
         <div className="status success">
-          <div>Service: {data.data.service}</div>
-          <div>Status: {data.data.status}</div>
-          <div>Time: {new Date(data.timestamp).toLocaleString()}</div>
+          <div className="user-info-card">
+            <div className="info-row">
+              <span className="info-label">Service</span>
+              <span className="info-value">{data.data.service}</span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Status</span>
+              <span className="info-value">{data.data.status}</span>
+            </div>
+            <div className="info-row">
+              <span className="info-label">Time</span>
+              <span className="info-value">{new Date(data.timestamp).toLocaleString()}</span>
+            </div>
+          </div>
         </div>
       )}
 
-      <button className="primary-btn" onClick={() => refetch()} type="button">
+      <button className="ghost-btn" onClick={() => refetch()} type="button" style={{ marginTop: '0.75rem' }}>
         Refresh
       </button>
     </section>

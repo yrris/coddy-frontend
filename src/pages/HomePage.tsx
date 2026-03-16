@@ -1,21 +1,20 @@
-import BackendStatusCard from "../components/BackendStatusCard";
-import env from "../config/env";
+import BackendStatusCard from '../components/BackendStatusCard';
+import env from '../config/env';
 
 const stackItems = [
-  "Java 21 + Spring Boot 3",
-  "PostgreSQL + Redis",
-  "React + TypeScript + Vite",
-  // "Generation modes: HTML Single / HTML Multi / React",
+  'Java 21 + Spring Boot 3',
+  'PostgreSQL + Redis',
+  'Spring Session + Spring Security',
+  'React 19 + TypeScript + Vite',
 ];
 
 function HomePage() {
   return (
     <div className="page-grid">
       <section className="hero panel">
-        <p className="eyebrow">Intelligent Webpage Generator</p>
-        <h1>Coddy Site Studio</h1>
-        <p>Build and iterate AI-generated websites.</p>
-        <p>
+        <span className="eyebrow">AI Coding Platform</span>
+        <h1>Coddy Intelligent Website Generator</h1>
+        <p className="env-label">
           Runtime env: <strong>{env.appEnv}</strong>
         </p>
 
