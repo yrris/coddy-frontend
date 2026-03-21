@@ -1,6 +1,9 @@
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import env from './config/env';
 import { useAuth } from './context/AuthContext';
+import AdminAppsPage from './pages/AdminAppsPage';
+import AppChatPage from './pages/AppChatPage';
+import AppEditPage from './pages/AppEditPage';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 
@@ -15,6 +18,19 @@ function App() {
           <NavLink to="/" end>
             Home
           </NavLink>
+          {loginUser ? (
+            <NavLink
+              to="/"
+              onClick={() => {
+                setTimeout(() => {
+                  document.getElementById('my-apps')?.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+              }}
+            >
+              My Apps
+            </NavLink>
+          ) : null}
+          {loginUser?.userRole === 'ADMIN' ? <NavLink to="/admin/apps">Admin</NavLink> : null}
           <NavLink to="/login">Auth</NavLink>
         </nav>
 
@@ -33,6 +49,9 @@ function App() {
       <main className="app-main">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/app/chat/:appId" element={<AppChatPage />} />
+          <Route path="/app/edit/:appId" element={<AppEditPage />} />
+          <Route path="/admin/apps" element={<AdminAppsPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -1,48 +1,51 @@
-import env from "../config/env";
-import type { HealthPingData } from "../types/api";
+import env from '../config/env';
+import type { HealthPingData } from '../types/api';
+import type { AiCodeGenerateRequest, AiCodeGenerateResponse } from '../types/codegen';
 import type {
-  AiCodeGenerateRequest,
-  AiCodeGenerateResponse,
-} from "../types/codegen";
-import type {
-  LoginUser,
-  UserLoginRequest,
-  UserRegisterRequest,
-} from "../types/user";
-import { ApiError, request } from "./http";
+  AppAddRequest,
+  AppAdminUpdateRequest,
+  AppDeployRequest,
+  AppId,
+  AppQueryRequest,
+  AppUpdateRequest,
+  AppVO,
+  PageVO
+} from '../types/app';
+import type { LoginUser, UserLoginRequest, UserRegisterRequest } from '../types/user';
+import { ApiError, request } from './http';
 
 export async function fetchHealthPing() {
-  return request<HealthPingData>("/health/ping");
+  return request<HealthPingData>('/health/ping');
 }
 
 export async function registerUser(payload: UserRegisterRequest) {
-  return request<number>("/user/register", {
-    method: "POST",
-    body: JSON.stringify(payload),
+  return request<number>('/user/register', {
+    method: 'POST',
+    body: JSON.stringify(payload)
   });
 }
 
 export async function loginUser(payload: UserLoginRequest) {
-  return request<LoginUser>("/user/login", {
-    method: "POST",
-    body: JSON.stringify(payload),
+  return request<LoginUser>('/user/login', {
+    method: 'POST',
+    body: JSON.stringify(payload)
   });
 }
 
 export async function fetchCurrentUser() {
-  return request<LoginUser>("/user/current");
+  return request<LoginUser>('/user/current');
 }
 
 export async function logoutUser() {
-  return request<boolean>("/user/logout", {
-    method: "POST",
+  return request<boolean>('/user/logout', {
+    method: 'POST'
   });
 }
 
 export async function generateCode(payload: AiCodeGenerateRequest) {
-  return request<AiCodeGenerateResponse>("/ai/codegen/generate", {
-    method: "POST",
-    body: JSON.stringify(payload),
+  return request<AiCodeGenerateResponse>('/ai/codegen/generate', {
+    method: 'POST',
+    body: JSON.stringify(payload)
   });
 }
 
@@ -58,22 +61,19 @@ type SseEvent = {
   data: string;
 };
 
-export async function streamGenerateCode(
-  payload: AiCodeGenerateRequest,
-  handlers: StreamHandlers,
-) {
+export async function streamGenerateCode(payload: AiCodeGenerateRequest, handlers: StreamHandlers) {
   const response = await fetch(`${env.apiBaseUrl}/ai/codegen/stream`, {
-    method: "POST",
-    credentials: "include",
+    method: 'POST',
+    credentials: 'include',
     headers: {
-      "Content-Type": "application/json",
-      Accept: "text/event-stream",
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream'
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(payload)
   });
 
   if (!response.ok) {
-    let message = "Stream request failed";
+    let message = 'Stream request failed';
     let code = -1;
     try {
       const jsonPayload = await response.json();
@@ -86,26 +86,24 @@ export async function streamGenerateCode(
   }
 
   if (!response.body) {
-    throw new ApiError("Stream response body is empty", response.status);
+    throw new ApiError('Stream response body is empty', response.status);
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = "";
+  let buffer = '';
+  let isNormalEnd = false;
 
-  let isNormalEnd = false; // whether 'done' or 'error' received
-
-  // wrap handlers to intercept the signal
   const wrappedHandlers: StreamHandlers = {
     ...handlers,
     onDone: () => {
       isNormalEnd = true;
-      if (handlers.onDone) handlers.onDone();
+      handlers.onDone?.();
     },
-    onError: (msg) => {
-      isNormalEnd = true; // clear error msg, normal end
-      handlers.onError(msg);
-    },
+    onError: (message) => {
+      isNormalEnd = true;
+      handlers.onError(message);
+    }
   };
 
   while (true) {
@@ -114,22 +112,21 @@ export async function streamGenerateCode(
       break;
     }
 
-    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
-    let delimiterIndex = buffer.indexOf("\n\n");
+    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+    let delimiterIndex = buffer.indexOf('\n\n');
 
     while (delimiterIndex !== -1) {
       const rawEvent = buffer.slice(0, delimiterIndex);
       buffer = buffer.slice(delimiterIndex + 2);
       const parsedEvent = parseSseEvent(rawEvent);
-      // handleSseEvent(parsedEvent, handlers);
       handleSseEvent(parsedEvent, wrappedHandlers);
-      delimiterIndex = buffer.indexOf("\n\n");
+      delimiterIndex = buffer.indexOf('\n\n');
     }
   }
+
   if (!isNormalEnd) {
-    // no done or error,may be timeout
     handlers.onError(
-      "The connection timed out or was unexpectedly disconnected. Please check your network and try again.",
+      'The connection timed out or was unexpectedly disconnected. Please check your network and try again.'
     );
   }
 
@@ -140,48 +137,179 @@ export async function streamGenerateCode(
 }
 
 function parseSseEvent(rawEvent: string): SseEvent {
-  const lines = rawEvent.split("\n");
-  let eventName = "message";
+  const lines = rawEvent.split('\n');
+  let eventName = 'message';
   const dataLines: string[] = [];
 
   lines.forEach((line) => {
-    if (line.startsWith("event:")) {
+    if (line.startsWith('event:')) {
       eventName = line.slice(6).trim();
       return;
     }
-    if (line.startsWith("data:")) {
+    if (line.startsWith('data:')) {
       dataLines.push(line.slice(5).trimStart());
     }
   });
 
   return {
     eventName,
-    data: dataLines.join("\n"),
+    data: dataLines.join('\n')
   };
 }
 
 function handleSseEvent(event: SseEvent, handlers: StreamHandlers) {
-  if (event.eventName === "chunk") {
+  if (event.eventName === 'chunk') {
     handlers.onChunk(event.data);
     return;
   }
 
-  if (event.eventName === "result") {
+  if (event.eventName === 'result') {
     const parsed = JSON.parse(event.data) as AiCodeGenerateResponse;
     handlers.onResult(parsed);
     return;
   }
 
-  if (event.eventName === "done") {
-    if (handlers.onDone) handlers.onDone();
+  if (event.eventName === 'done') {
+    handlers.onDone?.();
     return;
   }
 
-  if (event.eventName === "error") {
-    // throw new ApiError(event.data || 'Stream generation failed', 500);
-    handlers.onError(
-      event.data || "Something wrong during generating, please retry",
-    );
-    return;
+  if (event.eventName === 'error') {
+    handlers.onError(event.data || 'Something wrong during generating, please retry');
   }
+}
+
+export async function addApp(payload: AppAddRequest) {
+  return request<AppId>('/app/add', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateApp(payload: AppUpdateRequest) {
+  return request<boolean>('/app/update', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteAppById(id: AppId) {
+  return request<boolean>('/app/delete', {
+    method: 'POST',
+    body: JSON.stringify({ id })
+  });
+}
+
+export async function getAppVoById(id: AppId) {
+  const params = new URLSearchParams({ id: String(id) });
+  return request<AppVO>(`/app/get/vo?${params.toString()}`);
+}
+
+export async function listMyAppVoByPage(payload: AppQueryRequest = {}) {
+  return request<PageVO<AppVO>>('/app/my/list/page/vo', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function listGoodAppVoByPage(payload: AppQueryRequest = {}) {
+  return request<PageVO<AppVO>>('/app/good/list/page/vo', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deployApp(payload: AppDeployRequest) {
+  return request<string>('/app/deploy', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function adminDeleteAppById(id: AppId) {
+  return request<boolean>('/app/admin/delete', {
+    method: 'POST',
+    body: JSON.stringify({ id })
+  });
+}
+
+export async function adminUpdateApp(payload: AppAdminUpdateRequest) {
+  return request<boolean>('/app/admin/update', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function adminListAppVoByPage(payload: AppQueryRequest = {}) {
+  return request<PageVO<AppVO>>('/app/admin/list/page/vo', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function adminGetAppVoById(id: AppId) {
+  const params = new URLSearchParams({ id: String(id) });
+  return request<AppVO>(`/app/admin/get/vo?${params.toString()}`);
+}
+
+type AppChatStreamHandlers = {
+  onChunk: (chunk: string) => void;
+  onDone: () => void;
+  onError: (message: string) => void;
+};
+
+export function streamAppChatToGenCode(
+  appId: AppId,
+  message: string,
+  handlers: AppChatStreamHandlers
+) {
+  const params = new URLSearchParams({
+    appId: String(appId),
+    message
+  });
+  const streamUrl = `${env.apiBaseUrl}/app/chat/gen/code?${params.toString()}`;
+  const eventSource = new EventSource(streamUrl, {
+    withCredentials: true
+  });
+
+  let closed = false;
+
+  const close = () => {
+    if (closed) {
+      return;
+    }
+    closed = true;
+    eventSource.close();
+  };
+
+  eventSource.onmessage = (event) => {
+    if (closed) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(event.data) as { d?: string };
+      handlers.onChunk(parsed.d ?? '');
+    } catch {
+      handlers.onError('Failed to parse SSE payload');
+      close();
+    }
+  };
+
+  eventSource.addEventListener('done', () => {
+    if (closed) {
+      return;
+    }
+    handlers.onDone();
+    close();
+  });
+
+  eventSource.onerror = () => {
+    if (closed) {
+      return;
+    }
+    handlers.onError('SSE connection failed');
+    close();
+  };
+
+  return close;
 }

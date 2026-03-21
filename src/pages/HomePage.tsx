@@ -1,305 +1,318 @@
-import { useMemo, useState } from "react";
-import BackendStatusCard from "../components/BackendStatusCard";
-import env from "../config/env";
-import { useAuth } from "../context/AuthContext";
-import { generateCode, streamGenerateCode } from "../lib/api";
-import { ApiError } from "../lib/http";
-import type { AiCodeGenerateResponse, CodeGenType } from "../types/codegen";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import AppCard from '../components/AppCard';
+import { getDeployUrl } from '../config/env';
+import { useAuth } from '../context/AuthContext';
+import { addApp, listGoodAppVoByPage, listMyAppVoByPage } from '../lib/api';
+import { ApiError } from '../lib/http';
+import type { AppVO, CodeGenType } from '../types/app';
 
-const stackItems = [
-  "Java 21 + Spring Boot 3",
-  "PostgreSQL + Redis",
-  "Parser Strategy + Saver Template + Facade",
-  "React 19 + TypeScript + Vite + SSE Stream",
+const modeOptions: Array<{ label: string; value: CodeGenType }> = [
+  { label: 'Native Single HTML', value: 'HTML_SINGLE' },
+  { label: 'Native Multi HTML', value: 'HTML_MULTI' }
 ];
 
-const generationModes: Array<{ label: string; value: CodeGenType }> = [
-  { label: "Single HTML", value: "HTML_SINGLE" },
-  { label: "Multi HTML", value: "HTML_MULTI" },
+const quickPromptExamples = [
+  'Build a personal backend engineer portfolio website with a dark hero section, project timeline, internship highlights, and a contact form optimized for recruiter review.',
+  'Create a startup landing page for an AI productivity product with pricing cards, feature grid, customer quotes, and a clean call-to-action flow for trial signup.',
+  'Generate a modern documentation website with sticky navigation, searchable sections, release highlights, and mobile-first layout for engineering teams.',
+  'Design an event registration website with agenda overview, speaker list, countdown timer, and a simple registration form with validation feedback.'
 ];
-
-const defaultPrompt =
-  "Build a modern startup landing page with hero section, feature cards, pricing, and FAQ in a dark technology style.";
 
 function HomePage() {
+  const navigate = useNavigate();
   const { loginUser } = useAuth();
 
-  const [prompt, setPrompt] = useState(defaultPrompt);
-  const [mode, setMode] = useState<CodeGenType>("HTML_SINGLE");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [streamBuffer, setStreamBuffer] = useState("");
-  const [result, setResult] = useState<AiCodeGenerateResponse | null>(null);
-  const [activeFile, setActiveFile] = useState("index.html");
+  const [createPrompt, setCreatePrompt] = useState(quickPromptExamples[0]);
+  const [createMode, setCreateMode] = useState<CodeGenType>('HTML_MULTI');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
-  const sortedFiles = useMemo(() => {
-    if (!result) {
-      return [];
-    }
-    return Object.keys(result.files);
-  }, [result]);
+  const [myKeyword, setMyKeyword] = useState('');
+  const [myApps, setMyApps] = useState<AppVO[]>([]);
+  const [myPage, setMyPage] = useState({ current: 1, pageSize: 6, total: 0 });
 
-  const activeFileContent = useMemo(() => {
-    if (!result || !activeFile) {
-      return "";
-    }
-    return result.files[activeFile] ?? "";
-  }, [result, activeFile]);
+  const [featuredKeyword, setFeaturedKeyword] = useState('');
+  const [featuredApps, setFeaturedApps] = useState<AppVO[]>([]);
+  const [featuredPage, setFeaturedPage] = useState({ current: 1, pageSize: 6, total: 0 });
 
-  const previewHtml = useMemo(() => {
-    if (!result) {
-      return "";
-    }
+  const [listError, setListError] = useState<string | null>(null);
 
-    const html = result.files["index.html"] ?? "";
-    if (result.codeGenType === "HTML_SINGLE") {
-      return html;
-    }
+  const myTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(myPage.total / myPage.pageSize)),
+    [myPage.pageSize, myPage.total]
+  );
 
-    const css = result.files["style.css"] ?? "";
-    const js = result.files["script.js"] ?? "";
-    return injectAssetsForPreview(html, css, js);
-  }, [result]);
+  const featuredTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(featuredPage.total / featuredPage.pageSize)),
+    [featuredPage.pageSize, featuredPage.total]
+  );
 
-  const resetStatus = () => {
-    setErrorMessage(null);
-    setSuccessMessage(null);
-  };
-
-  const handleGenerate = async () => {
+  const loadMyApps = useCallback(async () => {
     if (!loginUser) {
-      setErrorMessage("Please login first before generating code.");
+      setMyApps([]);
+      setMyPage((prev) => ({ ...prev, total: 0 }));
       return;
     }
-
-    resetStatus();
-    setIsGenerating(true);
-    setStreamBuffer("");
-
     try {
-      const response = await generateCode({
-        prompt,
-        codeGenType: mode,
+      const response = await listMyAppVoByPage({
+        pageNum: myPage.current,
+        pageSize: myPage.pageSize,
+        appName: myKeyword || undefined,
+        sortField: 'createTime',
+        sortOrder: 'desc'
       });
-      setResult(response.data);
-      setActiveFile("index.html");
-      setSuccessMessage("Code generation completed.");
+      setMyApps(response.data.records || []);
+      setMyPage((prev) => ({ ...prev, total: response.data.totalRow || 0 }));
+      setListError(null);
     } catch (error) {
       if (error instanceof ApiError) {
-        setErrorMessage(error.message);
+        setListError(error.message);
       } else {
-        setErrorMessage("Code generation failed.");
+        setListError('Failed to load my apps');
       }
-    } finally {
-      setIsGenerating(false);
     }
-  };
+  }, [loginUser, myKeyword, myPage.current, myPage.pageSize]);
 
-  const handleStreamGenerate = async () => {
+  const loadFeaturedApps = useCallback(async () => {
+    try {
+      const response = await listGoodAppVoByPage({
+        pageNum: featuredPage.current,
+        pageSize: featuredPage.pageSize,
+        appName: featuredKeyword || undefined,
+        sortField: 'createTime',
+        sortOrder: 'desc'
+      });
+      setFeaturedApps(response.data.records || []);
+      setFeaturedPage((prev) => ({ ...prev, total: response.data.totalRow || 0 }));
+      setListError(null);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setListError(error.message);
+      } else {
+        setListError('Failed to load featured apps');
+      }
+    }
+  }, [featuredKeyword, featuredPage.current, featuredPage.pageSize]);
+
+  useEffect(() => {
+    void loadMyApps();
+  }, [loadMyApps]);
+
+  useEffect(() => {
+    void loadFeaturedApps();
+  }, [loadFeaturedApps]);
+
+  const handleCreateApp = async (event: FormEvent) => {
+    event.preventDefault();
+
     if (!loginUser) {
-      setErrorMessage("Please login first before generating code.");
+      navigate('/login');
+      return;
+    }
+    if (!createPrompt.trim()) {
+      setCreateError('Prompt is required');
       return;
     }
 
-    resetStatus();
-    setIsStreaming(true);
-    setStreamBuffer("");
-    setResult(null);
-
     try {
-      await streamGenerateCode(
-        {
-          prompt,
-          codeGenType: mode,
-        },
-        {
-          onChunk: (chunk) => {
-            setStreamBuffer((previous) => previous + chunk);
-          },
-          onResult: (streamResult) => {
-            setResult(streamResult);
-            setActiveFile("index.html");
-          },
-          onError: (errorMessage) => {
-            setErrorMessage(errorMessage);
-          },
-          onDone: () => {
-            setSuccessMessage("Stream generation completed.");
-          },
-        },
-      );
-      setSuccessMessage("Stream generation completed.");
+      setCreating(true);
+      setCreateError(null);
+      const response = await addApp({
+        initPrompt: createPrompt.trim(),
+        codeGenType: createMode
+      });
+      const appId = String(response.data);
+      navigate(`/app/chat/${appId}`);
     } catch (error) {
       if (error instanceof ApiError) {
-        setErrorMessage(error.message);
+        setCreateError(error.message);
       } else {
-        setErrorMessage("Stream generation failed.");
+        setCreateError('Failed to create app');
       }
     } finally {
-      setIsStreaming(false);
+      setCreating(false);
     }
+  };
+
+  const toAppPath = (app: AppVO) => {
+    const appId = String(app.id);
+    const isOwner = loginUser && String(loginUser.id) === String(app.userId);
+    return isOwner ? `/app/chat/${appId}` : `/app/chat/${appId}?view=1`;
   };
 
   return (
-    <div className="generator-page">
-      <div className="page-grid">
-        <section className="hero panel">
-          <span className="eyebrow">AI Website Generator</span>
-          <h1>Coddy</h1>
-          <p className="env-label">
-            Runtime env: <strong>{env.appEnv}</strong>
-          </p>
+    <div className="home-page">
+      <section className="panel create-panel">
+        <div className="create-panel-header">
+          <h1>Build Your App</h1>
+          <span className="generator-badge">P4</span>
+        </div>
 
-          <ul className="stack-list">
-            {stackItems.map((item) => (
-              <li key={item}>{item}</li>
+        <p className="panel-subtitle">Create an app first, then continue generation in the chat workspace.</p>
+
+        <form className="create-form" onSubmit={handleCreateApp}>
+          <div className="mode-switch generator-mode-switch">
+            {modeOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={createMode === option.value ? 'primary-btn' : 'ghost-btn'}
+                onClick={() => setCreateMode(option.value)}
+                disabled={creating}
+              >
+                {option.label}
+              </button>
             ))}
-          </ul>
-        </section>
-
-        <BackendStatusCard />
-      </div>
-
-      <section className="panel generator-workbench">
-        <div className="generator-header">
-          <div>
-            <h2>Generate Website Code</h2>
-            <p className="panel-subtitle">
-              {loginUser
-                ? `Logged in as ${loginUser.displayName} (${loginUser.email})`
-                : "Please login in the Auth page to use code generation."}
-            </p>
           </div>
-          <span className="generator-badge">P3</span>
-        </div>
 
-        <div className="mode-switch generator-mode-switch">
-          {generationModes.map((modeItem) => (
-            <button
-              key={modeItem.value}
-              type="button"
-              className={mode === modeItem.value ? "primary-btn" : "ghost-btn"}
-              onClick={() => setMode(modeItem.value)}
-              disabled={isGenerating || isStreaming}
-            >
-              {modeItem.label}
+          <textarea
+            className="prompt-textarea"
+            value={createPrompt}
+            onChange={(event) => setCreatePrompt(event.target.value)}
+            placeholder="Describe the app you want to build"
+            rows={6}
+            disabled={creating}
+          />
+
+          <div className="quick-prompts">
+            {quickPromptExamples.map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                className="ghost-btn"
+                onClick={() => setCreatePrompt(prompt)}
+                disabled={creating}
+              >
+                Use Sample Prompt
+              </button>
+            ))}
+          </div>
+
+          <div className="create-form-footer">
+            <button className="primary-btn" type="submit" disabled={creating}>
+              {creating ? 'Creating...' : 'Create App'}
             </button>
-          ))}
+            {loginUser ? (
+              <span className="panel-subtitle">Logged in as {loginUser.displayName}</span>
+            ) : (
+              <span className="panel-subtitle">Login required for app creation</span>
+            )}
+          </div>
+          {createError ? <p className="status error">{createError}</p> : null}
+        </form>
+      </section>
+
+      {listError ? <p className="status error">{listError}</p> : null}
+
+      <section id="my-apps" className="panel list-panel">
+        <div className="list-header">
+          <h2>My Apps</h2>
+          <input
+            className="search-input"
+            value={myKeyword}
+            onChange={(event) => {
+              setMyKeyword(event.target.value);
+              setMyPage((prev) => ({ ...prev, current: 1 }));
+            }}
+            placeholder="Search by app name"
+            disabled={!loginUser}
+          />
         </div>
 
-        <label className="prompt-label" htmlFor="promptInput">
-          Prompt
-        </label>
-        <textarea
-          id="promptInput"
-          className="prompt-textarea"
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          rows={7}
-          placeholder="Describe the website you want to generate"
-          disabled={isGenerating || isStreaming}
-        />
+        {!loginUser ? (
+          <p className="panel-subtitle">Login first to view your apps.</p>
+        ) : myApps.length === 0 ? (
+          <p className="panel-subtitle">No apps yet.</p>
+        ) : (
+          <div className="app-card-grid">
+            {myApps.map((app) => (
+              <AppCard
+                key={String(app.id)}
+                app={app}
+                onViewChat={() => navigate(toAppPath(app))}
+                onViewSite={app.deployKey ? () => window.open(getDeployUrl(app.deployKey || ''), '_blank') : undefined}
+              />
+            ))}
+          </div>
+        )}
 
-        <div className="generator-actions">
-          <button
-            className="primary-btn"
-            type="button"
-            onClick={() => void handleGenerate()}
-            disabled={isGenerating || isStreaming}
-          >
-            {isGenerating ? "Generating..." : "Generate"}
-          </button>
+        <div className="pagination-row">
           <button
             className="ghost-btn"
             type="button"
-            onClick={() => void handleStreamGenerate()}
-            disabled={isGenerating || isStreaming}
+            disabled={myPage.current <= 1 || !loginUser}
+            onClick={() => setMyPage((prev) => ({ ...prev, current: prev.current - 1 }))}
           >
-            {isStreaming ? "Streaming..." : "Stream Generate"}
+            Prev
+          </button>
+          <span>
+            {myPage.current} / {myTotalPages}
+          </span>
+          <button
+            className="ghost-btn"
+            type="button"
+            disabled={myPage.current >= myTotalPages || !loginUser}
+            onClick={() => setMyPage((prev) => ({ ...prev, current: prev.current + 1 }))}
+          >
+            Next
           </button>
         </div>
+      </section>
 
-        {errorMessage ? <p className="status error">{errorMessage}</p> : null}
-        {successMessage ? (
-          <p className="status success">{successMessage}</p>
-        ) : null}
-
-        <div className="stream-panel">
-          <div className="stream-panel-header">Live Stream Output</div>
-          <pre className="stream-panel-content">
-            {streamBuffer || "Waiting for stream output..."}
-          </pre>
+      <section className="panel list-panel">
+        <div className="list-header">
+          <h2>Featured Apps</h2>
+          <input
+            className="search-input"
+            value={featuredKeyword}
+            onChange={(event) => {
+              setFeaturedKeyword(event.target.value);
+              setFeaturedPage((prev) => ({ ...prev, current: 1 }));
+            }}
+            placeholder="Search featured"
+          />
         </div>
 
-        {result ? (
-          <div className="result-grid">
-            <div className="result-files panel">
-              <h3>Generated Files</h3>
-              <div className="file-tabs">
-                {sortedFiles.map((fileName) => (
-                  <button
-                    key={fileName}
-                    type="button"
-                    className={
-                      activeFile === fileName ? "primary-btn" : "ghost-btn"
-                    }
-                    onClick={() => setActiveFile(fileName)}
-                  >
-                    {fileName}
-                  </button>
-                ))}
-              </div>
-              <pre className="file-content">{activeFileContent}</pre>
-              <p className="panel-subtitle">
-                Saved to <code>{result.outputDir}</code>
-              </p>
-            </div>
-
-            <div className="result-preview panel">
-              <h3>Preview</h3>
-              <iframe
-                title="Generated website preview"
-                className="preview-frame"
-                srcDoc={previewHtml}
-                sandbox="allow-scripts"
+        {featuredApps.length === 0 ? (
+          <p className="panel-subtitle">No featured apps yet.</p>
+        ) : (
+          <div className="app-card-grid">
+            {featuredApps.map((app) => (
+              <AppCard
+                key={String(app.id)}
+                app={app}
+                onViewChat={() => navigate(toAppPath(app))}
+                onViewSite={app.deployKey ? () => window.open(getDeployUrl(app.deployKey || ''), '_blank') : undefined}
               />
-            </div>
+            ))}
           </div>
-        ) : null}
+        )}
+
+        <div className="pagination-row">
+          <button
+            className="ghost-btn"
+            type="button"
+            disabled={featuredPage.current <= 1}
+            onClick={() => setFeaturedPage((prev) => ({ ...prev, current: prev.current - 1 }))}
+          >
+            Prev
+          </button>
+          <span>
+            {featuredPage.current} / {featuredTotalPages}
+          </span>
+          <button
+            className="ghost-btn"
+            type="button"
+            disabled={featuredPage.current >= featuredTotalPages}
+            onClick={() => setFeaturedPage((prev) => ({ ...prev, current: prev.current + 1 }))}
+          >
+            Next
+          </button>
+        </div>
       </section>
     </div>
   );
-}
-
-function injectAssetsForPreview(html: string, css: string, js: string) {
-  let merged = html;
-  merged = merged.replace(/<link[^>]*href=["']style\.css["'][^>]*>/i, "");
-  merged = merged.replace(
-    /<script[^>]*src=["']script\.js["'][^>]*><\/script>/i,
-    "",
-  );
-
-  if (css.trim()) {
-    const styleTag = `<style>\n${css}\n</style>`;
-    if (/<\/head>/i.test(merged)) {
-      merged = merged.replace(/<\/head>/i, `${styleTag}\n</head>`);
-    } else {
-      merged = `${styleTag}\n${merged}`;
-    }
-  }
-
-  if (js.trim()) {
-    const scriptTag = `<script>\n${js}\n<\/script>`;
-    if (/<\/body>/i.test(merged)) {
-      merged = merged.replace(/<\/body>/i, `${scriptTag}\n</body>`);
-    } else {
-      merged = `${merged}\n${scriptTag}`;
-    }
-  }
-
-  return merged;
 }
 
 export default HomePage;
