@@ -9,6 +9,8 @@ import type {
   AppQueryRequest,
   AppUpdateRequest,
   AppVO,
+  ChatHistoryQueryRequest,
+  ChatHistoryVO,
   PageVO
 } from '../types/app';
 import type { LoginUser, UserLoginRequest, UserRegisterRequest } from '../types/user';
@@ -226,6 +228,14 @@ export async function deployApp(payload: AppDeployRequest) {
   });
 }
 
+export async function fetchChatHistory(appId: AppId, cursorId?: number, pageSize = 20) {
+  const params = new URLSearchParams({ pageSize: String(pageSize) });
+  if (cursorId != null) {
+    params.set('cursorId', String(cursorId));
+  }
+  return request<ChatHistoryVO[]>(`/app/${appId}/chat/history?${params.toString()}`);
+}
+
 export async function adminDeleteAppById(id: AppId) {
   return request<boolean>('/app/admin/delete', {
     method: 'POST',
@@ -247,9 +257,34 @@ export async function adminListAppVoByPage(payload: AppQueryRequest = {}) {
   });
 }
 
+export async function adminListChatHistoryByPage(payload: ChatHistoryQueryRequest = {}) {
+  return request<PageVO<ChatHistoryVO>>('/app/admin/chat/list/page/vo', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function adminDeleteChatHistory(id: number) {
+  return request<boolean>('/app/admin/chat/delete', {
+    method: 'POST',
+    body: JSON.stringify({ id })
+  });
+}
+
 export async function adminGetAppVoById(id: AppId) {
   const params = new URLSearchParams({ id: String(id) });
   return request<AppVO>(`/app/admin/get/vo?${params.toString()}`);
+}
+
+export async function generateScreenshot(appId: AppId) {
+  return request<string>('/app/screenshot', {
+    method: 'POST',
+    body: JSON.stringify({ appId })
+  });
+}
+
+export function getDownloadUrl(appId: AppId) {
+  return `${env.apiBaseUrl}/app/download/${appId}`;
 }
 
 type AppChatStreamHandlers = {
@@ -287,8 +322,14 @@ export function streamAppChatToGenCode(
       return;
     }
     try {
-      const parsed = JSON.parse(event.data) as { d?: string };
-      handlers.onChunk(parsed.d ?? '');
+      const parsed = JSON.parse(event.data) as Record<string, unknown>;
+      if ('type' in parsed) {
+        // Typed message (REACT_VITE mode) — pass full JSON string to handler
+        handlers.onChunk(event.data);
+      } else {
+        // Legacy format: {"d": "chunk"}
+        handlers.onChunk((parsed.d as string) ?? '');
+      }
     } catch {
       handlers.onError('Failed to parse SSE payload');
       close();

@@ -9,7 +9,8 @@ import type { AppVO, CodeGenType } from '../types/app';
 
 const modeOptions: Array<{ label: string; value: CodeGenType }> = [
   { label: 'Native Single HTML', value: 'HTML_SINGLE' },
-  { label: 'Native Multi HTML', value: 'HTML_MULTI' }
+  { label: 'Native Multi HTML', value: 'HTML_MULTI' },
+  { label: 'React + Vite', value: 'REACT_VITE' }
 ];
 
 const quickPromptExamples = [
@@ -123,7 +124,7 @@ function HomePage() {
         codeGenType: createMode
       });
       const appId = String(response.data);
-      navigate(`/app/chat/${appId}`);
+      navigate(`/app/chat/${appId}?autoStart=1`);
     } catch (error) {
       if (error instanceof ApiError) {
         setCreateError(error.message);

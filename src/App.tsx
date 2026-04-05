@@ -2,6 +2,7 @@ import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import env from './config/env';
 import { useAuth } from './context/AuthContext';
 import AdminAppsPage from './pages/AdminAppsPage';
+import AdminChatHistoryPage from './pages/AdminChatHistoryPage';
 import AppChatPage from './pages/AppChatPage';
 import AppEditPage from './pages/AppEditPage';
 import HomePage from './pages/HomePage';
@@ -30,7 +31,12 @@ function App() {
               My Apps
             </NavLink>
           ) : null}
-          {loginUser?.userRole === 'ADMIN' ? <NavLink to="/admin/apps">Admin</NavLink> : null}
+          {loginUser?.userRole === 'ADMIN' ? (
+            <>
+              <NavLink to="/admin/apps">Admin Apps</NavLink>
+              <NavLink to="/admin/chat-history">Chat History</NavLink>
+            </>
+          ) : null}
           <NavLink to="/login">Auth</NavLink>
         </nav>
 
@@ -52,6 +58,7 @@ function App() {
           <Route path="/app/chat/:appId" element={<AppChatPage />} />
           <Route path="/app/edit/:appId" element={<AppEditPage />} />
           <Route path="/admin/apps" element={<AdminAppsPage />} />
+          <Route path="/admin/chat-history" element={<AdminChatHistoryPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -12,7 +12,7 @@ const env = {
 } as const;
 
 export function getDeployUrl(deployKey: string) {
-  return `${trimTailSlash(env.deployDomain)}/${deployKey}/`;
+  return `${trimTailSlash(env.apiBaseUrl)}/deployed/${deployKey}/`;
 }
 
 export function getStaticPreviewUrl(previewKey: string) {

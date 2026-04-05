@@ -876,6 +876,18 @@ code {
   gap: 0.55rem;
 }
 
+.load-more-btn {
+  width: 100%;
+  font-size: 0.78rem;
+  padding: 0.4rem;
+  color: var(--color-text-muted);
+  border-color: transparent;
+}
+
+.load-more-btn:hover {
+  border-color: var(--color-border);
+}
+
 .chat-message {
   display: flex;
 }
@@ -943,6 +955,66 @@ code {
 .preview-panel-actions {
   display: flex;
   gap: 0.4rem;
+}
+
+/* ── Edit Mode ── */
+.edit-mode-active {
+  border-color: var(--color-success) !important;
+  color: var(--color-success) !important;
+  background: rgba(16, 185, 129, 0.12) !important;
+}
+
+.edit-mode-active:hover {
+  border-color: var(--color-success) !important;
+  background: rgba(16, 185, 129, 0.2) !important;
+}
+
+.element-info-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.08);
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.element-info-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.element-info-tag {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+.element-info-detail {
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+  font-size: 0.78rem;
+}
+
+.element-info-text {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.element-info-clear {
+  flex-shrink: 0;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
 }
 
 /* ── Markdown in chat bubbles ── */
