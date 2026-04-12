@@ -21,6 +21,10 @@ export type AppVO = {
   deployedTime?: string;
   priority: number;
   userId: AppId;
+  isPublic?: boolean;
+  isFeatured?: boolean;
+  likeCount?: number;
+  hasLiked?: boolean;
   createTime: string;
   updateTime: string;
   user?: LoginUser;
@@ -64,6 +68,8 @@ export type AppQueryRequest = {
   deployKey?: string;
   priority?: number;
   userId?: AppId;
+  isPublic?: boolean;
+  isFeatured?: boolean;
 };
 
 export type AppDeployRequest = {

@@ -1,9 +1,14 @@
-import { FormEvent, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { adminDeleteAppById, adminListAppVoByPage, adminUpdateApp } from '../lib/api';
-import { ApiError } from '../lib/http';
-import type { AppVO, CodeGenType } from '../types/app';
+import { FormEvent, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import {
+  adminDeleteAppById,
+  adminFeatureApp,
+  adminListAppVoByPage,
+  adminUnfeatureApp,
+} from "../lib/api";
+import { ApiError } from "../lib/http";
+import type { AppVO, CodeGenType } from "../types/app";
 
 function AdminAppsPage() {
   const navigate = useNavigate();
@@ -15,13 +20,13 @@ function AdminAppsPage() {
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
-  const [appName, setAppName] = useState('');
-  const [userId, setUserId] = useState('');
-  const [deployKey, setDeployKey] = useState('');
-  const [priority, setPriority] = useState('');
-  const [codeGenType, setCodeGenType] = useState<'' | CodeGenType>('');
+  const [appName, setAppName] = useState("");
+  const [userId, setUserId] = useState("");
+  const [deployKey, setDeployKey] = useState("");
+  const [priority, setPriority] = useState("");
+  const [codeGenType, setCodeGenType] = useState<"" | CodeGenType>("");
 
-  const isAdmin = loginUser?.userRole === 'ADMIN';
+  const isAdmin = loginUser?.userRole === "ADMIN";
   const totalPages = Math.max(1, Math.ceil(page.total / page.pageSize));
 
   useEffect(() => {
@@ -40,8 +45,8 @@ function AdminAppsPage() {
           deployKey: deployKey || undefined,
           priority: priority ? Number(priority) : undefined,
           codeGenType: codeGenType || undefined,
-          sortField: 'createTime',
-          sortOrder: 'desc'
+          sortField: "createTime",
+          sortOrder: "desc",
         });
         setApps(response.data.records || []);
         setPage((prev) => ({ ...prev, total: response.data.totalRow || 0 }));
@@ -50,7 +55,7 @@ function AdminAppsPage() {
         if (loadError instanceof ApiError) {
           setError(loadError.message);
         } else {
-          setError('Failed to load apps');
+          setError("Failed to load apps");
         }
       } finally {
         setLoading(false);
@@ -58,7 +63,17 @@ function AdminAppsPage() {
     };
 
     void load();
-  }, [appName, codeGenType, deployKey, isAdmin, page.current, page.pageSize, priority, reloadToken, userId]);
+  }, [
+    appName,
+    codeGenType,
+    deployKey,
+    isAdmin,
+    page.current,
+    page.pageSize,
+    priority,
+    reloadToken,
+    userId,
+  ]);
 
   const handleFilterSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -78,47 +93,75 @@ function AdminAppsPage() {
       if (deleteError instanceof ApiError) {
         setError(deleteError.message);
       } else {
-        setError('Failed to delete app');
+        setError("Failed to delete app");
       }
     }
   };
 
-  const handleFeature = async (app: AppVO) => {
+  const handleToggleFeature = async (app: AppVO) => {
     try {
-      await adminUpdateApp({
-        id: app.id,
-        priority: 99
-      });
+      if (app.isFeatured) {
+        await adminUnfeatureApp(app.id);
+      } else {
+        await adminFeatureApp(app.id);
+      }
       setReloadToken((token) => token + 1);
     } catch (updateError) {
       if (updateError instanceof ApiError) {
         setError(updateError.message);
       } else {
-        setError('Failed to feature app');
+        setError("Failed to toggle feature");
       }
     }
   };
 
   if (!loginUser) {
-    return <section className="panel status loading">Please login first.</section>;
+    return (
+      <section className="panel status loading">Please login first.</section>
+    );
   }
 
   if (!isAdmin) {
-    return <section className="panel status error">Admin role required.</section>;
+    return (
+      <section className="panel status error">Admin role required.</section>
+    );
   }
 
   return (
     <section className="panel admin-page">
       <h1>App Administration</h1>
-      <p className="panel-subtitle">Manage all apps, update featured priority, and moderate content.</p>
+      <p className="panel-subtitle">
+        Manage all apps, update featured priority, and moderate content.
+      </p>
 
       <form className="admin-filter-form" onSubmit={handleFilterSubmit}>
-        <input placeholder="App name" value={appName} onChange={(event) => setAppName(event.target.value)} />
-        <input placeholder="User id" value={userId} onChange={(event) => setUserId(event.target.value)} />
-        <input placeholder="Deploy key" value={deployKey} onChange={(event) => setDeployKey(event.target.value)} />
-        <input placeholder="Priority" value={priority} onChange={(event) => setPriority(event.target.value)} />
+        <input
+          placeholder="App name"
+          value={appName}
+          onChange={(event) => setAppName(event.target.value)}
+        />
+        <input
+          placeholder="User id"
+          value={userId}
+          onChange={(event) => setUserId(event.target.value)}
+        />
+        <input
+          placeholder="Deploy key"
+          value={deployKey}
+          onChange={(event) => setDeployKey(event.target.value)}
+        />
+        <input
+          placeholder="Priority"
+          value={priority}
+          onChange={(event) => setPriority(event.target.value)}
+        />
 
-        <select value={codeGenType} onChange={(event) => setCodeGenType(event.target.value as '' | CodeGenType)}>
+        <select
+          value={codeGenType}
+          onChange={(event) =>
+            setCodeGenType(event.target.value as "" | CodeGenType)
+          }
+        >
           <option value="">All Types</option>
           <option value="HTML_SINGLE">HTML_SINGLE</option>
           <option value="HTML_MULTI">HTML_MULTI</option>
@@ -139,7 +182,8 @@ function AdminAppsPage() {
               <th>Name</th>
               <th>Owner</th>
               <th>Type</th>
-              <th>Priority</th>
+              <th>Public</th>
+              <th>Featured</th>
               <th>Deploy Key</th>
               <th>Actions</th>
             </tr>
@@ -147,11 +191,11 @@ function AdminAppsPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7}>Loading...</td>
+                <td colSpan={8}>Loading...</td>
               </tr>
             ) : apps.length === 0 ? (
               <tr>
-                <td colSpan={7}>No data</td>
+                <td colSpan={8}>No data</td>
               </tr>
             ) : (
               apps.map((app) => (
@@ -160,20 +204,41 @@ function AdminAppsPage() {
                   <td>{app.appName}</td>
                   <td>{app.user?.displayName || app.userId}</td>
                   <td>{app.codeGenType}</td>
-                  <td>{app.priority}</td>
-                  <td>{app.deployKey || '-'}</td>
+                  <td>{app.isPublic ? "Yes" : "No"}</td>
+                  <td>{app.isFeatured ? "Yes" : "No"}</td>
+                  <td>{app.deployKey || "-"}</td>
                   <td>
                     <div className="table-actions">
-                      <button type="button" className="ghost-btn" onClick={() => navigate(`/app/chat/${app.id}?view=1`)}>
+                      <button
+                        type="button"
+                        className="ghost-btn"
+                        onClick={() => navigate(`/app/chat/${app.id}?view=1`)}
+                      >
                         View
                       </button>
-                      <button type="button" className="ghost-btn" onClick={() => navigate(`/app/edit/${app.id}`)}>
+                      <button
+                        type="button"
+                        className="ghost-btn"
+                        onClick={() => navigate(`/app/edit/${app.id}`)}
+                      >
                         Edit
                       </button>
-                      <button type="button" className="ghost-btn" onClick={() => void handleFeature(app)}>
-                        Feature
+                      <button
+                        type="button"
+                        className={app.isFeatured ? "primary-btn" : "ghost-btn"}
+                        onClick={() => void handleToggleFeature(app)}
+                        disabled={!app.isPublic}
+                        title={
+                          !app.isPublic ? "App must be public to feature" : ""
+                        }
+                      >
+                        {app.isFeatured ? "Unfeature" : "Feature"}
                       </button>
-                      <button type="button" className="ghost-btn danger-btn" onClick={() => void handleDelete(app)}>
+                      <button
+                        type="button"
+                        className="ghost-btn danger-btn"
+                        onClick={() => void handleDelete(app)}
+                      >
                         Delete
                       </button>
                     </div>
@@ -190,7 +255,9 @@ function AdminAppsPage() {
           className="ghost-btn"
           type="button"
           disabled={page.current <= 1}
-          onClick={() => setPage((prev) => ({ ...prev, current: prev.current - 1 }))}
+          onClick={() =>
+            setPage((prev) => ({ ...prev, current: prev.current - 1 }))
+          }
         >
           Prev
         </button>
@@ -201,7 +268,9 @@ function AdminAppsPage() {
           className="ghost-btn"
           type="button"
           disabled={page.current >= totalPages}
-          onClick={() => setPage((prev) => ({ ...prev, current: prev.current + 1 }))}
+          onClick={() =>
+            setPage((prev) => ({ ...prev, current: prev.current + 1 }))
+          }
         >
           Next
         </button>

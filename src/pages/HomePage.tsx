@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AppCard from '../components/AppCard';
 import { getDeployUrl } from '../config/env';
 import { useAuth } from '../context/AuthContext';
-import { addApp, listGoodAppVoByPage, listMyAppVoByPage } from '../lib/api';
+import { addApp, likeApp, listMyAppVoByPage, listMyLikedAppVoByPage, unlikeApp } from '../lib/api';
 import { ApiError } from '../lib/http';
 import type { AppVO, CodeGenType } from '../types/app';
 
@@ -14,9 +14,9 @@ const modeOptions: Array<{ label: string; value: CodeGenType }> = [
 ];
 
 const quickPromptExamples = [
-  'Build a personal backend engineer portfolio website with a dark hero section, project timeline, internship highlights, and a contact form optimized for recruiter review.',
+  'Create a Memphis Design-style website for a creative agency. High-saturation, contrasting color scheme: Coral Red #FF5252, Royal Blue #1A237E, Bright Yellow #FFD600, and Pink Green #69F0AE. The background is covered with hand-drawn geometric patterns: jagged edges, polka dots, diagonal lines, and triangles randomly scattered. Use an extra-bold round font. Elements have thick black outlines and are randomly rotated 2-5 degrees. Color blocks are directly joined without any white space. The overall effect is chaotic and fun, with a different color scheme for each screen. Mouse hover triggers element bouncing and color flashing.',
   'Create a startup landing page for an AI productivity product with pricing cards, feature grid, customer quotes, and a clean call-to-action flow for trial signup.',
-  'Generate a modern documentation website with sticky navigation, searchable sections, release highlights, and mobile-first layout for engineering teams.',
+  'Create a Glassmorphism-style landing page for your SaaS product. The dark gradient background uses large, blurred, colored light spheres (blue, purple, pink) as the underlying light source. All cards and panels use `backdrop-filter: blur(20px)`, a semi-transparent white background `rgba(255,255,255,0.12)`, and a thin white border `rgba(255,255,255,0.2)`. UI hierarchy is distinguished by differences in transparency. The blur value changes dynamically during interaction. Light colors are used for text to ensure readability. The overall effect is an icy, crystal-like texture.',
   'Design an event registration website with agenda overview, speaker list, countdown timer, and a simple registration form with validation feedback.'
 ];
 
@@ -33,9 +33,9 @@ function HomePage() {
   const [myApps, setMyApps] = useState<AppVO[]>([]);
   const [myPage, setMyPage] = useState({ current: 1, pageSize: 6, total: 0 });
 
-  const [featuredKeyword, setFeaturedKeyword] = useState('');
-  const [featuredApps, setFeaturedApps] = useState<AppVO[]>([]);
-  const [featuredPage, setFeaturedPage] = useState({ current: 1, pageSize: 6, total: 0 });
+  const [likedKeyword, setLikedKeyword] = useState('');
+  const [likedApps, setLikedApps] = useState<AppVO[]>([]);
+  const [likedPage, setLikedPage] = useState({ current: 1, pageSize: 6, total: 0 });
 
   const [listError, setListError] = useState<string | null>(null);
 
@@ -44,9 +44,9 @@ function HomePage() {
     [myPage.pageSize, myPage.total]
   );
 
-  const featuredTotalPages = useMemo(
-    () => Math.max(1, Math.ceil(featuredPage.total / featuredPage.pageSize)),
-    [featuredPage.pageSize, featuredPage.total]
+  const likedTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(likedPage.total / likedPage.pageSize)),
+    [likedPage.pageSize, likedPage.total]
   );
 
   const loadMyApps = useCallback(async () => {
@@ -75,34 +75,39 @@ function HomePage() {
     }
   }, [loginUser, myKeyword, myPage.current, myPage.pageSize]);
 
-  const loadFeaturedApps = useCallback(async () => {
+  const loadLikedApps = useCallback(async () => {
+    if (!loginUser) {
+      setLikedApps([]);
+      setLikedPage((prev) => ({ ...prev, total: 0 }));
+      return;
+    }
     try {
-      const response = await listGoodAppVoByPage({
-        pageNum: featuredPage.current,
-        pageSize: featuredPage.pageSize,
-        appName: featuredKeyword || undefined,
+      const response = await listMyLikedAppVoByPage({
+        pageNum: likedPage.current,
+        pageSize: likedPage.pageSize,
+        appName: likedKeyword || undefined,
         sortField: 'createTime',
         sortOrder: 'desc'
       });
-      setFeaturedApps(response.data.records || []);
-      setFeaturedPage((prev) => ({ ...prev, total: response.data.totalRow || 0 }));
+      setLikedApps(response.data.records || []);
+      setLikedPage((prev) => ({ ...prev, total: response.data.totalRow || 0 }));
       setListError(null);
     } catch (error) {
       if (error instanceof ApiError) {
         setListError(error.message);
       } else {
-        setListError('Failed to load featured apps');
+        setListError('Failed to load liked apps');
       }
     }
-  }, [featuredKeyword, featuredPage.current, featuredPage.pageSize]);
+  }, [loginUser, likedKeyword, likedPage.current, likedPage.pageSize]);
 
   useEffect(() => {
     void loadMyApps();
   }, [loadMyApps]);
 
   useEffect(() => {
-    void loadFeaturedApps();
-  }, [loadFeaturedApps]);
+    void loadLikedApps();
+  }, [loadLikedApps]);
 
   const handleCreateApp = async (event: FormEvent) => {
     event.preventDefault();
@@ -147,7 +152,6 @@ function HomePage() {
       <section className="panel create-panel">
         <div className="create-panel-header">
           <h1>Build Your App</h1>
-          <span className="generator-badge">P4</span>
         </div>
 
         <p className="panel-subtitle">Create an app first, then continue generation in the chat workspace.</p>
@@ -263,28 +267,47 @@ function HomePage() {
 
       <section className="panel list-panel">
         <div className="list-header">
-          <h2>Featured Apps</h2>
+          <h2>Liked Apps</h2>
           <input
             className="search-input"
-            value={featuredKeyword}
+            value={likedKeyword}
             onChange={(event) => {
-              setFeaturedKeyword(event.target.value);
-              setFeaturedPage((prev) => ({ ...prev, current: 1 }));
+              setLikedKeyword(event.target.value);
+              setLikedPage((prev) => ({ ...prev, current: 1 }));
             }}
-            placeholder="Search featured"
+            placeholder="Search liked apps"
+            disabled={!loginUser}
           />
         </div>
 
-        {featuredApps.length === 0 ? (
-          <p className="panel-subtitle">No featured apps yet.</p>
+        {!loginUser ? (
+          <p className="panel-subtitle">Login first to view your liked apps.</p>
+        ) : likedApps.length === 0 ? (
+          <p className="panel-subtitle">No liked apps yet. Like apps in the Gallery!</p>
         ) : (
           <div className="app-card-grid">
-            {featuredApps.map((app) => (
+            {likedApps.map((app) => (
               <AppCard
                 key={String(app.id)}
                 app={app}
                 onViewChat={() => navigate(toAppPath(app))}
                 onViewSite={app.deployKey ? () => window.open(getDeployUrl(app.deployKey || ''), '_blank') : undefined}
+                onLike={
+                  !app.hasLiked
+                    ? async () => {
+                        await likeApp(app.id);
+                        void loadLikedApps();
+                      }
+                    : undefined
+                }
+                onUnlike={
+                  app.hasLiked
+                    ? async () => {
+                        await unlikeApp(app.id);
+                        void loadLikedApps();
+                      }
+                    : undefined
+                }
               />
             ))}
           </div>
@@ -294,19 +317,19 @@ function HomePage() {
           <button
             className="ghost-btn"
             type="button"
-            disabled={featuredPage.current <= 1}
-            onClick={() => setFeaturedPage((prev) => ({ ...prev, current: prev.current - 1 }))}
+            disabled={likedPage.current <= 1 || !loginUser}
+            onClick={() => setLikedPage((prev) => ({ ...prev, current: prev.current - 1 }))}
           >
             Prev
           </button>
           <span>
-            {featuredPage.current} / {featuredTotalPages}
+            {likedPage.current} / {likedTotalPages}
           </span>
           <button
             className="ghost-btn"
             type="button"
-            disabled={featuredPage.current >= featuredTotalPages}
-            onClick={() => setFeaturedPage((prev) => ({ ...prev, current: prev.current + 1 }))}
+            disabled={likedPage.current >= likedTotalPages || !loginUser}
+            onClick={() => setLikedPage((prev) => ({ ...prev, current: prev.current + 1 }))}
           >
             Next
           </button>

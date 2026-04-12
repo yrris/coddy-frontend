@@ -498,18 +498,6 @@ code {
   margin-bottom: 0.35rem;
 }
 
-.generator-badge {
-  border-radius: var(--radius-pill);
-  border: 1px solid rgba(34, 211, 238, 0.2);
-  background: rgba(34, 211, 238, 0.12);
-  color: var(--color-accent);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0.28rem 0.7rem;
-}
-
 .generator-mode-switch {
   margin-top: 1rem;
   margin-bottom: 1rem;
@@ -644,6 +632,19 @@ code {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: #0b1220;
+}
+
+.chat-layout .preview-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chat-layout .preview-panel .preview-frame {
+  flex: 1;
+  height: auto;
+  min-height: 0;
 }
 
 /* ── P4 Home ── */
@@ -827,10 +828,13 @@ code {
 /* ── P4 Chat ── */
 .chat-page {
   display: grid;
+  grid-template-rows: auto 1fr;
   gap: 1rem;
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  height: calc(100vh - 56px - 4rem);
+  min-height: 0;
 }
 
 .chat-topbar {
@@ -855,13 +859,16 @@ code {
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 0.9rem;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chat-panel {
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: 1fr auto auto;
   gap: 0.75rem;
-  min-height: 520px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chat-messages {
@@ -870,7 +877,7 @@ code {
   background: rgba(2, 6, 23, 0.75);
   padding: 0.8rem;
   overflow-y: auto;
-  min-height: 380px;
+  min-height: 0;
   display: grid;
   align-content: flex-start;
   gap: 0.55rem;
@@ -1197,10 +1204,6 @@ code {
     grid-template-columns: 1fr;
   }
 
-  .preview-frame {
-    height: 340px;
-  }
-
   .list-header {
     flex-direction: column;
     align-items: flex-start;
@@ -1228,8 +1231,22 @@ code {
     grid-template-columns: 1fr;
   }
 
-  .chat-panel {
-    min-height: 420px;
+  .chat-page {
+    height: auto;
+    min-height: 0;
+  }
+
+  .chat-layout {
+    overflow: visible;
+  }
+
+  .chat-messages {
+    max-height: 50vh;
+  }
+
+  .chat-layout .preview-panel .preview-frame {
+    height: 340px;
+    flex: none;
   }
 
   .chat-input-row {
@@ -1239,4 +1256,128 @@ code {
   .admin-filter-form {
     grid-template-columns: 1fr;
   }
+
+  .gallery-controls {
+    flex-direction: column;
+  }
+}
+
+/* ── Gallery Page ── */
+.gallery-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.gallery-panel {
+  padding: 2rem;
+}
+
+.gallery-header {
+  margin-bottom: 1.5rem;
+}
+
+.gallery-header h1 {
+  margin: 0 0 0.25rem;
+}
+
+.gallery-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.gallery-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.gallery-filters {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color var(--transition);
+}
+
+.filter-select:hover,
+.filter-select:focus {
+  border-color: var(--color-border-hover);
+  outline: none;
+}
+
+/* ── Like Button ── */
+.like-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.like-btn:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.like-btn.liked {
+  border-color: var(--color-error);
+  color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.like-count {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* ── Featured Badge ── */
+.badge {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.badge-featured {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+/* ── App Card Title Row ── */
+.app-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-card-title-row h3 {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }

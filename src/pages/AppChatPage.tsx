@@ -1,16 +1,33 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getDeployUrl, getStaticPreviewUrl } from '../config/env';
-import { useAuth } from '../context/AuthContext';
-import MarkdownRenderer from '../components/MarkdownRenderer';
-import { deleteAppById, deployApp, fetchChatHistory, generateScreenshot, getAppVoById, getDownloadUrl, streamAppChatToGenCode } from '../lib/api';
-import { ApiError } from '../lib/http';
-import { VisualEditor, type ElementInfo } from '../lib/visualEditor';
-import type { AppVO, ChatHistoryVO, StreamMessage } from '../types/app';
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { getDeployUrl, getStaticPreviewUrl } from "../config/env";
+import { useAuth } from "../context/AuthContext";
+import MarkdownRenderer from "../components/MarkdownRenderer";
+import {
+  deleteAppById,
+  deployApp,
+  fetchChatHistory,
+  generateScreenshot,
+  getAppVoById,
+  getDownloadUrl,
+  publishApp,
+  streamAppChatToGenCode,
+  unpublishApp,
+} from "../lib/api";
+import { ApiError } from "../lib/http";
+import { VisualEditor, type ElementInfo } from "../lib/visualEditor";
+import type { AppVO, ChatHistoryVO, StreamMessage } from "../types/app";
 
 type ChatMessage = {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   loading?: boolean;
 };
@@ -18,15 +35,15 @@ type ChatMessage = {
 function mapHistoryToMessages(history: ChatHistoryVO[]): ChatMessage[] {
   return history.map((h) => ({
     id: `db_${h.id}`,
-    role: h.senderType === 'USER' ? ('user' as const) : ('assistant' as const),
+    role: h.senderType === "USER" ? ("user" as const) : ("assistant" as const),
     content: h.content,
-    loading: false
+    loading: false,
   }));
 }
 
 function AppChatPage() {
   const navigate = useNavigate();
-  const { appId = '' } = useParams();
+  const { appId = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const { loginUser } = useAuth();
@@ -36,7 +53,7 @@ function AppChatPage() {
   const [appError, setAppError] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
+  const [inputMessage, setInputMessage] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
 
@@ -56,23 +73,30 @@ function AppChatPage() {
   const selectedElementRef = useRef<ElementInfo | null>(null);
 
   const [editMode, setEditMode] = useState(false);
-  const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);
+  const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(
+    null,
+  );
 
-  const isViewMode = searchParams.get('view') === '1';
-  const shouldAutoStart = searchParams.get('autoStart') === '1';
-  const isOwner = !!(loginUser && app && String(loginUser.id) === String(app.userId));
-  const isAdmin = loginUser?.userRole === 'ADMIN';
+  // const isViewMode = searchParams.get('view') === '1';
+  const shouldAutoStart = searchParams.get("autoStart") === "1";
+  const isOwner = !!(
+    loginUser &&
+    app &&
+    String(loginUser.id) === String(app.userId)
+  );
+  const isAdmin = loginUser?.userRole === "ADMIN";
   const canManage = isOwner || isAdmin;
   const canChat = isOwner;
 
   const previewUrl = useMemo(() => {
     if (!app) {
-      return '';
+      return "";
     }
-    const previewKey = app.previewKey || `${app.codeGenType.toLowerCase()}_${appId}`;
+    const previewKey =
+      app.previewKey || `${app.codeGenType.toLowerCase()}_${appId}`;
     const base = getStaticPreviewUrl(previewKey);
     // React projects serve from dist/ after build
-    if (app.codeGenType === 'REACT_VITE') {
+    if (app.codeGenType === "REACT_VITE") {
       return `${base}dist/index.html?t=${previewVersion}`;
     }
     return `${base}?t=${previewVersion}`;
@@ -94,7 +118,7 @@ function AppChatPage() {
       if (error instanceof ApiError) {
         setAppError(error.message);
       } else {
-        setAppError('Failed to load app');
+        setAppError("Failed to load app");
       }
     } finally {
       setLoadingApp(false);
@@ -119,7 +143,9 @@ function AppChatPage() {
       // Scroll to bottom after loading history
       if (historyMessages.length > 0) {
         setTimeout(() => {
-          chatMessagesRef.current?.scrollTo({ top: chatMessagesRef.current.scrollHeight });
+          chatMessagesRef.current?.scrollTo({
+            top: chatMessagesRef.current.scrollHeight,
+          });
         }, 50);
       }
       return historyMessages.length;
@@ -150,10 +176,14 @@ function AppChatPage() {
   // Initialize VisualEditor
   useEffect(() => {
     const editor = new VisualEditor();
-    editor.on('elementSelected', (info) => {
+    editor.on("elementSelected", (info) => {
       setSelectedElement(info);
     });
     visualEditorRef.current = editor;
+    // Eagerly attach if iframe already rendered
+    if (iframeRef.current) {
+      editor.attach(iframeRef.current);
+    }
     return () => {
       editor.detach();
       visualEditorRef.current = null;
@@ -171,11 +201,13 @@ function AppChatPage() {
     }
 
     // Find the smallest database id in current messages
-    const dbMessages = messages.filter((m) => m.id.startsWith('db_'));
+    const dbMessages = messages.filter((m) => m.id.startsWith("db_"));
     if (dbMessages.length === 0) {
       return;
     }
-    const smallestId = Math.min(...dbMessages.map((m) => Number(m.id.replace('db_', ''))));
+    const smallestId = Math.min(
+      ...dbMessages.map((m) => Number(m.id.replace("db_", ""))),
+    );
 
     try {
       setLoadingHistory(true);
@@ -190,7 +222,8 @@ function AppChatPage() {
       setTimeout(() => {
         if (chatMessagesRef.current) {
           const newScrollHeight = chatMessagesRef.current.scrollHeight;
-          chatMessagesRef.current.scrollTop = newScrollHeight - prevScrollHeight;
+          chatMessagesRef.current.scrollTop =
+            newScrollHeight - prevScrollHeight;
         }
       }, 50);
     } catch {
@@ -206,7 +239,7 @@ function AppChatPage() {
         return;
       }
       if (!loginUser) {
-        navigate('/login');
+        navigate("/login");
         return;
       }
       if (!canChat) {
@@ -226,34 +259,41 @@ function AppChatPage() {
       const elemInfo = selectedElementRef.current;
       if (elemInfo) {
         const ctx = [
-          '[Visual Edit Target]',
+          "[Visual Edit Target]",
           `Tag: <${elemInfo.tagName.toLowerCase()}>`,
           elemInfo.id ? `ID: #${elemInfo.id}` : null,
-          elemInfo.className ? `Class: .${elemInfo.className.split(' ').join('.')}` : null,
+          elemInfo.className
+            ? `Class: .${elemInfo.className.split(" ").join(".")}`
+            : null,
           elemInfo.textContent ? `Text: "${elemInfo.textContent}"` : null,
           `Selector: ${elemInfo.selector}`,
           `Page: ${elemInfo.pagePath}`,
-        ].filter(Boolean).join('\n');
+        ]
+          .filter(Boolean)
+          .join("\n");
         apiMessage = `${ctx}\n\nUser request: ${userMessage}`;
       }
 
       setMessages((prev) => [
         ...prev,
-        { id: userMessageId, role: 'user', content: userMessage },
-        { id: aiMessageId, role: 'assistant', content: '', loading: true }
+        { id: userMessageId, role: "user", content: userMessage },
+        { id: aiMessageId, role: "assistant", content: "", loading: true },
       ]);
 
-      setInputMessage('');
+      setInputMessage("");
       setIsGenerating(true);
       setStreamError(null);
 
       // Auto-scroll to bottom
       setTimeout(() => {
-        chatMessagesRef.current?.scrollTo({ top: chatMessagesRef.current.scrollHeight, behavior: 'smooth' });
+        chatMessagesRef.current?.scrollTo({
+          top: chatMessagesRef.current.scrollHeight,
+          behavior: "smooth",
+        });
       }, 50);
 
       streamCloserRef.current?.();
-      const isReactVite = app?.codeGenType === 'REACT_VITE';
+      const isReactVite = app?.codeGenType === "REACT_VITE";
 
       streamCloserRef.current = streamAppChatToGenCode(appId, apiMessage, {
         onChunk: (chunk) => {
@@ -262,10 +302,13 @@ function AppChatPage() {
           if (isReactVite) {
             try {
               const msg = JSON.parse(chunk) as StreamMessage;
-              if (msg.type === 'AI_RESPONSE') {
+              if (msg.type === "AI_RESPONSE") {
                 textToAppend = String(msg.data);
-              } else if (msg.type === 'TOOL_EXECUTED') {
-                const toolData = msg.data as { toolName: string; result: string };
+              } else if (msg.type === "TOOL_EXECUTED") {
+                const toolData = msg.data as {
+                  toolName: string;
+                  result: string;
+                };
                 textToAppend = `\n> ${toolData.result}\n`;
               } else {
                 // COMPLETE, ERROR — handled by SSE done/error events
@@ -282,17 +325,21 @@ function AppChatPage() {
                 ? {
                     ...item,
                     content: `${item.content}${textToAppend}`,
-                    loading: false
+                    loading: false,
                   }
-                : item
-            )
+                : item,
+            ),
           );
         },
         onDone: () => {
           setIsGenerating(false);
           setSelectedElement(null);
           visualEditorRef.current?.clearSelection();
-          setMessages((prev) => prev.map((item) => (item.id === aiMessageId ? { ...item, loading: false } : item)));
+          setMessages((prev) =>
+            prev.map((item) =>
+              item.id === aiMessageId ? { ...item, loading: false } : item,
+            ),
+          );
           setPreviewVersion(Date.now());
           void fetchAppInfo();
         },
@@ -305,15 +352,15 @@ function AppChatPage() {
                 ? {
                     ...item,
                     loading: false,
-                    content: item.content || 'Generation failed, please retry.'
+                    content: item.content || "Generation failed, please retry.",
                   }
-                : item
-            )
+                : item,
+            ),
           );
-        }
+        },
       });
     },
-    [appId, canChat, fetchAppInfo, isGenerating, loginUser, navigate]
+    [appId, canChat, fetchAppInfo, isGenerating, loginUser, navigate],
   );
 
   // Auto-start: only when ?autoStart=1 param is present (set by homepage on new app creation)
@@ -330,13 +377,23 @@ function AppChatPage() {
 
     autoStartedRef.current = true;
     // Clear the autoStart param from URL to prevent re-triggering on refresh
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.delete('autoStart');
-      return next;
-    }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("autoStart");
+        return next;
+      },
+      { replace: true },
+    );
     void sendMessage(app.initPrompt);
-  }, [shouldAutoStart, app, canChat, sendMessage, historyLoaded, setSearchParams]);
+  }, [
+    shouldAutoStart,
+    app,
+    canChat,
+    sendMessage,
+    historyLoaded,
+    setSearchParams,
+  ]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -348,20 +405,20 @@ function AppChatPage() {
       return;
     }
     if (!loginUser) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
 
     try {
       const response = await deployApp({ appId: app.id });
       setDeployUrl(response.data);
-      window.open(response.data, '_blank');
+      window.open(response.data, "_blank");
       await fetchAppInfo();
     } catch (error) {
       if (error instanceof ApiError) {
         setStreamError(error.message);
       } else {
-        setStreamError('Failed to deploy app');
+        setStreamError("Failed to deploy app");
       }
     }
   };
@@ -370,19 +427,19 @@ function AppChatPage() {
     if (!app || !canManage) {
       return;
     }
-    const shouldDelete = window.confirm('Delete this app?');
+    const shouldDelete = window.confirm("Delete this app?");
     if (!shouldDelete) {
       return;
     }
 
     try {
       await deleteAppById(app.id);
-      navigate('/');
+      navigate("/");
     } catch (error) {
       if (error instanceof ApiError) {
         setStreamError(error.message);
       } else {
-        setStreamError('Failed to delete app');
+        setStreamError("Failed to delete app");
       }
     }
   };
@@ -398,7 +455,7 @@ function AppChatPage() {
       if (error instanceof ApiError) {
         setStreamError(error.message);
       } else {
-        setStreamError('Failed to take screenshot');
+        setStreamError("Failed to take screenshot");
       }
     }
   };
@@ -407,7 +464,30 @@ function AppChatPage() {
     if (!app) {
       return;
     }
-    window.open(getDownloadUrl(app.id), '_blank');
+    window.open(getDownloadUrl(app.id), "_blank");
+  };
+
+  const handleTogglePublish = async () => {
+    if (!app) {
+      return;
+    }
+    try {
+      if (app.isPublic) {
+        await unpublishApp(app.id);
+        setApp((prev) =>
+          prev ? { ...prev, isPublic: false, isFeatured: false } : prev,
+        );
+      } else {
+        await publishApp(app.id);
+        setApp((prev) => (prev ? { ...prev, isPublic: true } : prev));
+      }
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setStreamError(error.message);
+      } else {
+        setStreamError("Failed to update publish status");
+      }
+    }
   };
 
   const toggleEditMode = useCallback(() => {
@@ -418,6 +498,10 @@ function AppChatPage() {
       setEditMode(false);
       setSelectedElement(null);
     } else {
+      // Ensure iframe is attached before enabling
+      if (iframeRef.current) {
+        editor.attach(iframeRef.current);
+      }
       editor.enable();
       setEditMode(true);
     }
@@ -428,7 +512,11 @@ function AppChatPage() {
   }
 
   if (appError || !app) {
-    return <section className="panel status error">{appError || 'App not found'}</section>;
+    return (
+      <section className="panel status error">
+        {appError || "App not found"}
+      </section>
+    );
   }
 
   return (
@@ -439,10 +527,19 @@ function AppChatPage() {
           <p className="panel-subtitle">{app.codeGenType}</p>
         </div>
         <div className="chat-topbar-actions">
-          <button type="button" className="ghost-btn" onClick={() => setShowInfo(true)}>
+          <button
+            type="button"
+            className="ghost-btn"
+            onClick={() => setShowInfo(true)}
+          >
             App Details
           </button>
-          <button type="button" className="primary-btn" onClick={() => void handleDeploy()} disabled={!isOwner}>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => void handleDeploy()}
+            disabled={!isOwner}
+          >
             Deploy
           </button>
           {isOwner ? (
@@ -451,7 +548,11 @@ function AppChatPage() {
               className="ghost-btn"
               onClick={() => void handleScreenshot()}
               disabled={!app.deployKey}
-              title={app.deployKey ? 'Capture screenshot as cover image' : 'Deploy first to take screenshot'}
+              title={
+                app.deployKey
+                  ? "Capture screenshot as cover image"
+                  : "Deploy first to take screenshot"
+              }
             >
               Screenshot
             </button>
@@ -465,8 +566,26 @@ function AppChatPage() {
               Download
             </button>
           ) : null}
+          {isOwner && app.deployKey ? (
+            <button
+              type="button"
+              className={app.isPublic ? "ghost-btn" : "primary-btn"}
+              onClick={() => void handleTogglePublish()}
+              title={
+                app.isPublic
+                  ? "Remove from gallery"
+                  : "Publish to gallery for others to see"
+              }
+            >
+              {app.isPublic ? "Unpublish" : "Publish"}
+            </button>
+          ) : null}
           {deployUrl ? (
-            <button type="button" className="ghost-btn" onClick={() => window.open(deployUrl, '_blank')}>
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => window.open(deployUrl, "_blank")}
+            >
               Open Site
             </button>
           ) : null}
@@ -475,7 +594,11 @@ function AppChatPage() {
 
       <section className="chat-layout">
         <div className="panel chat-panel">
-          <div className="chat-messages" id="chatMessages" ref={chatMessagesRef}>
+          <div
+            className="chat-messages"
+            id="chatMessages"
+            ref={chatMessagesRef}
+          >
             {hasMoreHistory ? (
               <button
                 type="button"
@@ -483,19 +606,22 @@ function AppChatPage() {
                 onClick={() => void loadMoreHistory()}
                 disabled={loadingHistory}
               >
-                {loadingHistory ? 'Loading...' : 'Load older messages'}
+                {loadingHistory ? "Loading..." : "Load older messages"}
               </button>
             ) : null}
             {messages.length === 0 && historyLoaded ? (
               <p className="panel-subtitle">No conversation yet.</p>
             ) : null}
             {messages.map((message) => (
-              <div key={message.id} className={`chat-message chat-message-${message.role}`}>
+              <div
+                key={message.id}
+                className={`chat-message chat-message-${message.role}`}
+              >
                 <div className="chat-bubble">
-                  {message.role === 'assistant' && message.content ? (
+                  {message.role === "assistant" && message.content ? (
                     <MarkdownRenderer content={message.content} />
                   ) : (
-                    message.content || (message.loading ? 'Generating...' : '')
+                    message.content || (message.loading ? "Generating..." : "")
                   )}
                 </div>
               </div>
@@ -508,12 +634,20 @@ function AppChatPage() {
                 <span className="element-info-tag">
                   &lt;{selectedElement.tagName.toLowerCase()}&gt;
                 </span>
-                {selectedElement.id ? <span className="element-info-detail">#{selectedElement.id}</span> : null}
+                {selectedElement.id ? (
+                  <span className="element-info-detail">
+                    #{selectedElement.id}
+                  </span>
+                ) : null}
                 {selectedElement.className ? (
-                  <span className="element-info-detail">.{selectedElement.className.split(' ')[0]}</span>
+                  <span className="element-info-detail">
+                    .{selectedElement.className.split(" ")[0]}
+                  </span>
                 ) : null}
                 {selectedElement.textContent ? (
-                  <span className="element-info-text">&quot;{selectedElement.textContent}&quot;</span>
+                  <span className="element-info-text">
+                    &quot;{selectedElement.textContent}&quot;
+                  </span>
                 ) : null}
               </div>
               <button
@@ -538,14 +672,22 @@ function AppChatPage() {
                 canChat
                   ? selectedElement
                     ? `Describe changes for <${selectedElement.tagName.toLowerCase()}>...`
-                    : 'Please describe the website you want to generate'
+                    : "Please describe the website you want to generate"
                   : "You cannot chat inside another user's app."
               }
               disabled={!canChat || isGenerating}
-              title={!canChat ? "You cannot chat inside another user's app." : undefined}
+              title={
+                !canChat
+                  ? "You cannot chat inside another user's app."
+                  : undefined
+              }
             />
-            <button className="primary-btn" type="submit" disabled={!canChat || isGenerating || !inputMessage.trim()}>
-              {isGenerating ? 'Generating...' : 'Send'}
+            <button
+              className="primary-btn"
+              type="submit"
+              disabled={!canChat || isGenerating || !inputMessage.trim()}
+            >
+              {isGenerating ? "Generating..." : "Send"}
             </button>
           </form>
 
@@ -559,19 +701,23 @@ function AppChatPage() {
               <button
                 type="button"
                 className="ghost-btn"
-                onClick={() => window.open(previewUrl, '_blank')}
+                onClick={() => window.open(previewUrl, "_blank")}
                 title="Open in new window"
               >
                 Open in new window
               </button>
               <button
                 type="button"
-                className={`ghost-btn${editMode ? ' edit-mode-active' : ''}`}
+                className={`ghost-btn${editMode ? " edit-mode-active" : ""}`}
                 onClick={toggleEditMode}
                 disabled={!canChat}
-                title={editMode ? 'Exit edit mode' : 'Click elements in preview to target AI edits'}
+                title={
+                  editMode
+                    ? "Exit edit mode"
+                    : "Click elements in preview to target AI edits"
+                }
               >
-                {editMode ? 'Exit Edit Mode' : 'Edit Mode'}
+                {editMode ? "Exit Edit Mode" : "Edit Mode"}
               </button>
             </div>
           </div>
@@ -595,11 +741,14 @@ function AppChatPage() {
 
       {showInfo ? (
         <div className="modal-mask" onClick={() => setShowInfo(false)}>
-          <section className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <section
+            className="modal-card"
+            onClick={(event) => event.stopPropagation()}
+          >
             <h3>App Details</h3>
             <div className="modal-info-grid">
               <span>Creator</span>
-              <span>{app.user?.displayName || 'Unknown'}</span>
+              <span>{app.user?.displayName || "Unknown"}</span>
               <span>Created At</span>
               <span>{new Date(app.createTime).toLocaleString()}</span>
               <span>Priority</span>
@@ -608,10 +757,18 @@ function AppChatPage() {
 
             {canManage ? (
               <div className="modal-actions">
-                <button type="button" className="ghost-btn" onClick={() => navigate(`/app/edit/${app.id}`)}>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => navigate(`/app/edit/${app.id}`)}
+                >
                   Edit
                 </button>
-                <button type="button" className="ghost-btn danger-btn" onClick={() => void handleDelete()}>
+                <button
+                  type="button"
+                  className="ghost-btn danger-btn"
+                  onClick={() => void handleDelete()}
+                >
                   Delete
                 </button>
               </div>

@@ -221,6 +221,69 @@ export async function listGoodAppVoByPage(payload: AppQueryRequest = {}) {
   });
 }
 
+export async function listMyLikedAppVoByPage(payload: AppQueryRequest = {}) {
+  return request<PageVO<AppVO>>('/app/my/liked/list/page/vo', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function publishApp(id: AppId) {
+  return request<boolean>('/app/publish', {
+    method: 'POST',
+    body: JSON.stringify({ id })
+  });
+}
+
+export async function unpublishApp(id: AppId) {
+  return request<boolean>('/app/unpublish', {
+    method: 'POST',
+    body: JSON.stringify({ id })
+  });
+}
+
+export async function likeApp(id: AppId) {
+  return request<boolean>('/app/like', {
+    method: 'POST',
+    body: JSON.stringify({ id })
+  });
+}
+
+export async function unlikeApp(id: AppId) {
+  return request<boolean>('/app/unlike', {
+    method: 'POST',
+    body: JSON.stringify({ id })
+  });
+}
+
+export async function listPublicAppVoByPage(payload: AppQueryRequest = {}) {
+  return request<PageVO<AppVO>>('/app/public/list/page/vo', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function listFeaturedAppVoByPage(payload: AppQueryRequest = {}) {
+  return request<PageVO<AppVO>>('/app/featured/list', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function adminFeatureApp(id: AppId) {
+  return request<boolean>('/app/admin/feature', {
+    method: 'POST',
+    body: JSON.stringify({ id })
+  });
+}
+
+export async function adminUnfeatureApp(id: AppId) {
+  return request<boolean>('/app/admin/unfeature', {
+    method: 'POST',
+    body: JSON.stringify({ id })
+  });
+}
+
 export async function deployApp(payload: AppDeployRequest) {
   return request<string>('/app/deploy', {
     method: 'POST',
@@ -341,6 +404,19 @@ export function streamAppChatToGenCode(
       return;
     }
     handlers.onDone();
+    close();
+  });
+
+  eventSource.addEventListener('business-error', (event: MessageEvent) => {
+    if (closed) {
+      return;
+    }
+    try {
+      const errorData = JSON.parse(event.data) as { message?: string; code?: number };
+      handlers.onError(errorData.message ?? 'Server error');
+    } catch {
+      handlers.onError('Server error');
+    }
     close();
   });
 

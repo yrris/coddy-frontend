@@ -5,6 +5,7 @@ import AdminAppsPage from './pages/AdminAppsPage';
 import AdminChatHistoryPage from './pages/AdminChatHistoryPage';
 import AppChatPage from './pages/AppChatPage';
 import AppEditPage from './pages/AppEditPage';
+import GalleryPage from './pages/GalleryPage';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 
@@ -19,6 +20,7 @@ function App() {
           <NavLink to="/" end>
             Home
           </NavLink>
+          <NavLink to="/gallery">Gallery</NavLink>
           {loginUser ? (
             <NavLink
               to="/"
@@ -55,6 +57,7 @@ function App() {
       <main className="app-main">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/app/chat/:appId" element={<AppChatPage />} />
           <Route path="/app/edit/:appId" element={<AppEditPage />} />
           <Route path="/admin/apps" element={<AdminAppsPage />} />
