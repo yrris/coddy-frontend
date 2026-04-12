@@ -135,12 +135,18 @@ function AdminChatHistoryPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={7}>Loading...</td>
-              </tr>
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={`sk-${i}`}>
+                  {Array.from({ length: 7 }).map((__, j) => (
+                    <td key={j}>
+                      <div className="skeleton-row-cell" />
+                    </td>
+                  ))}
+                </tr>
+              ))
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={7}>No data</td>
+                <td colSpan={7} className="admin-empty-cell">No data</td>
               </tr>
             ) : (
               items.map((item) => (

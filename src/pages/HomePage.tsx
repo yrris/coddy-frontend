@@ -1,6 +1,9 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Heart, LogIn, Rocket } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import AppCard from '../components/AppCard';
+import { EmptyState } from '../components/EmptyState';
+import { Button } from '../components/ui/button';
 import { getDeployUrl } from '../config/env';
 import { useAuth } from '../context/AuthContext';
 import { addApp, likeApp, listMyAppVoByPage, listMyLikedAppVoByPage, unlikeApp } from '../lib/api';
@@ -226,9 +229,32 @@ function HomePage() {
         </div>
 
         {!loginUser ? (
-          <p className="panel-subtitle">Login first to view your apps.</p>
+          <EmptyState
+            icon={<LogIn className="h-5 w-5" />}
+            title="Sign in to see your apps"
+            description="Log in to manage your creations, pick up unfinished drafts, or start something new."
+            action={
+              <Button onClick={() => navigate('/login')} size="sm">
+                Go to login
+              </Button>
+            }
+          />
         ) : myApps.length === 0 ? (
-          <p className="panel-subtitle">No apps yet.</p>
+          <EmptyState
+            icon={<Rocket className="h-5 w-5" />}
+            title="Create your first app"
+            description="Describe the website you want above — Coddy will generate it for you in seconds."
+            action={
+              <Button
+                size="sm"
+                onClick={() =>
+                  document.querySelector<HTMLTextAreaElement>('.prompt-textarea')?.focus()
+                }
+              >
+                Start building
+              </Button>
+            }
+          />
         ) : (
           <div className="app-card-grid">
             {myApps.map((app) => (
@@ -281,9 +307,22 @@ function HomePage() {
         </div>
 
         {!loginUser ? (
-          <p className="panel-subtitle">Login first to view your liked apps.</p>
+          <EmptyState
+            icon={<LogIn className="h-5 w-5" />}
+            title="Sign in to see your likes"
+            description="Bookmark community creations you love — they'll show up here."
+          />
         ) : likedApps.length === 0 ? (
-          <p className="panel-subtitle">No liked apps yet. Like apps in the Gallery!</p>
+          <EmptyState
+            icon={<Heart className="h-5 w-5" />}
+            title="No liked apps yet"
+            description="Browse the gallery and like apps you find interesting."
+            action={
+              <Button size="sm" variant="outline" onClick={() => navigate('/gallery')}>
+                Open Gallery
+              </Button>
+            }
+          />
         ) : (
           <div className="app-card-grid">
             {likedApps.map((app) => (

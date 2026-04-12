@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import AppCard from '../components/AppCard';
+import { EmptyState } from '../components/EmptyState';
+import { ErrorState } from '../components/ErrorState';
+import { Skeleton } from '../components/ui/skeleton';
 import { getDeployUrl } from '../config/env';
 import { useAuth } from '../context/AuthContext';
 import { likeApp, listFeaturedAppVoByPage, listPublicAppVoByPage, unlikeApp } from '../lib/api';
@@ -163,12 +167,30 @@ function GalleryPage() {
           </div>
         </div>
 
-        {error ? <p className="status error">{error}</p> : null}
-
-        {loading && apps.length === 0 ? (
-          <p className="panel-subtitle">Loading...</p>
+        {error ? (
+          <ErrorState
+            title="Failed to load gallery"
+            description={error}
+            onRetry={() => void loadApps()}
+            className="mt-4"
+          />
+        ) : loading && apps.length === 0 ? (
+          <div className="app-card-grid">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-[220px] w-full" />
+            ))}
+          </div>
         ) : apps.length === 0 ? (
-          <p className="panel-subtitle">No apps found.</p>
+          <EmptyState
+            icon={<Sparkles className="h-5 w-5" />}
+            title="No apps yet"
+            description={
+              keyword || codeGenFilter
+                ? 'Try clearing filters to see more results.'
+                : 'Featured community creations will appear here once available.'
+            }
+            className="mt-4"
+          />
         ) : (
           <div className="app-card-grid">
             {apps.map((app) => (

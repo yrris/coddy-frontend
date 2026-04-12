@@ -9,7 +9,11 @@ import {
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getDeployUrl, getStaticPreviewUrl } from "../config/env";
 import { useAuth } from "../context/AuthContext";
+import { motion } from "framer-motion";
 import MarkdownRenderer from "../components/MarkdownRenderer";
+import { TypingIndicator } from "../components/TypingIndicator";
+import { messageVariants } from "../lib/motion";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import {
   deleteAppById,
   deployApp,
@@ -73,6 +77,10 @@ function AppChatPage() {
   const selectedElementRef = useRef<ElementInfo | null>(null);
 
   const [editMode, setEditMode] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const [activeMobileTab, setActiveMobileTab] = useState<"chat" | "preview">(
+    "chat"
+  );
   const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(
     null,
   );
@@ -592,7 +600,37 @@ function AppChatPage() {
         </div>
       </section>
 
-      <section className="chat-layout">
+      {!isDesktop ? (
+        <div className="chat-mobile-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeMobileTab === "chat"}
+            className={`chat-mobile-tab${
+              activeMobileTab === "chat" ? " active" : ""
+            }`}
+            onClick={() => setActiveMobileTab("chat")}
+          >
+            Chat
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeMobileTab === "preview"}
+            className={`chat-mobile-tab${
+              activeMobileTab === "preview" ? " active" : ""
+            }`}
+            onClick={() => setActiveMobileTab("preview")}
+          >
+            Preview
+          </button>
+        </div>
+      ) : null}
+
+      <section
+        className="chat-layout"
+        data-mobile-tab={isDesktop ? undefined : activeMobileTab}
+      >
         <div className="panel chat-panel">
           <div
             className="chat-messages"
@@ -613,18 +651,31 @@ function AppChatPage() {
               <p className="panel-subtitle">No conversation yet.</p>
             ) : null}
             {messages.map((message) => (
-              <div
+              <motion.div
                 key={message.id}
                 className={`chat-message chat-message-${message.role}`}
+                variants={messageVariants}
+                initial="initial"
+                animate="animate"
+                layout="position"
               >
                 <div className="chat-bubble">
                   {message.role === "assistant" && message.content ? (
-                    <MarkdownRenderer content={message.content} />
+                    <>
+                      <MarkdownRenderer content={message.content} />
+                      {message.loading ? (
+                        <span className="stream-cursor" aria-hidden="true">
+                          ▋
+                        </span>
+                      ) : null}
+                    </>
+                  ) : message.loading && !message.content ? (
+                    <TypingIndicator label="Thinking" />
                   ) : (
-                    message.content || (message.loading ? "Generating..." : "")
+                    message.content
                   )}
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
 
